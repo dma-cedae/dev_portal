@@ -99,7 +99,8 @@ function setupActions() {
   if (btnEncerrarSessao) {
     btnEncerrarSessao.addEventListener("click", () => {
       clearFocalSession();
-      window.location.href = "./aedes-focais.html";
+      // Exibe a tela de aviso de sessão sem redirecionar a URL externa
+      showSessionWarning();
     });
   }
   
@@ -470,7 +471,11 @@ async function handleSubmitReport(event) {
 function iniciarAnimacaoSucesso() {
   const fill = document.querySelector('.progress-fill');
   if (fill) { fill.style.width = '100%'; }
-  setTimeout(() => { window.location.href = 'aedes.html'; }, 3000);
+  
+  // Recarrega a própria página mantendo os parâmetros de URL para renderizar a grade limpa
+  setTimeout(() => { 
+    window.location.reload(); 
+  }, 3000);
 }
 
 // Helpers Gerais
