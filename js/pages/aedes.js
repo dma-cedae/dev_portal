@@ -1,5 +1,5 @@
 /* =========================================================
-   CONFIGURAÇÕES GLOBAIS E STORAGE
+   aedes.js:   CONFIGURAÇÕES GLOBAIS E STORAGE
 ========================================================= */
 const TECHNICAL_DRAFTS_STORAGE_KEY = "dma_aedes_technical_drafts_v1";
 const BULK_IMPORTS_STORAGE_KEY = "dma_aedes_bulk_imports_v1";

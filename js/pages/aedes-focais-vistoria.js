@@ -1,13 +1,11 @@
 /**
  * ============================================================
- * Aedes · Área dos Focais · Vistoria semanal por grade
- * ------------------------------------------------------------
- * Versão Otimizada: Payload Estruturado para a Rota Concreta
+ * aedes-focais-vistoria.js - AEDES (Área dos Focais)
+ * Integrado com R/Shiny e Contrato Unificado de Identidade
  * ============================================================
  */
 
 const AEDES_FOCAL_SESSION_KEY = "dma_aedes_focal_session_v1";
-const AEDES_FOCAL_REPORTS_STORAGE_KEY = "dma_aedes_focal_reports_v7";
 const AEDES_API_TIMEOUT_MS = 90000;
 const DASH_VALUE = "-";
 
@@ -43,31 +41,80 @@ let currentSession = null;
 let gridRows = [];
 let systemDate = new Date();
 
-document.addEventListener("DOMContentLoaded", () => {
+/**
+ * Captura parâmetros transmitidos via URL (R/Shiny ou Link Direto)
+ */
+function captureSessionFromURL() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const focalPkParam = urlParams.get("focal_pk");
+  const matriculaParam = urlParams.get("matricula");
+  const emailParam = urlParams.get("email");
+  const nomeParam = urlParams.get("nome");
+
+  // Se receber focal_pk ou email via parâmetros, atualiza a sessão local
+  if (focalPkParam || emailParam) {
+    const existingSession = getFocalSession() || {};
+    
+    const sessionData = {
+      focal_pk: focalPkParam ? decodeURIComponent(focalPkParam) : existingSession.focal_pk || null,
+      matricula: matriculaParam ? decodeURIComponent(matriculaParam).trim() : existingSession.matricula || "",
+      email: emailParam ? decodeURIComponent(emailParam).trim().toLowerCase() : existingSession.email || "",
+      nome: nomeParam ? decodeURIComponent(nomeParam) : existingSession.nome || "Agente Focal",
+      auth_type: "aedes_focal",
+      login_at: new Date().toISOString()
+    };
+
+    localStorage.setItem(AEDES_FOCAL_SESSION_KEY, JSON.stringify(sessionData));
+    return sessionData;
+  }
+
+  return getFocalSession();
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
   setupActions();
-  currentSession = getFocalSession();
+  
+  // 1. Captura e atualiza sessão a partir da URL
+  currentSession = captureSessionFromURL();
+  
+  // 2. Valida se possui a sessão mínima (necessita de pelo menos focal_pk OU email)
   if (!isValidSession(currentSession)) {
     showSessionWarning();
     return;
   }
+
   showApp();
   fillSessionInfo(currentSession);
   initializeSystemDateInfo();
-  buildGridRows();
+  
+  // 3. Busca de unidades e binding de eventos
+  await buildGridRows();
   bindGridEvents();
-  renderGrid();
 });
 
 function setupActions() {
   const btnEncerrarSessao = document.getElementById("btnEncerrarSessao");
   const form = document.getElementById("vistoriaForm");
+  
   if (btnEncerrarSessao) {
     btnEncerrarSessao.addEventListener("click", () => {
       clearFocalSession();
       window.location.href = "./aedes-focais.html";
     });
   }
-  if (form) form.addEventListener("submit", handleSubmitReport);
+  
+  if (form) {
+    form.addEventListener("submit", handleSubmitReport);
+  }
+
+  const chk = document.getElementById('chkResponsabilidade');
+  const btn = document.getElementById('btnEnviarRelatorio');
+  if (chk && btn) {
+    chk.addEventListener('change', () => { 
+      btn.disabled = !chk.checked;
+      btn.style.opacity = chk.checked ? "1" : "0.5"; 
+    });
+  }
 }
 
 function getFocalSession() {
@@ -76,14 +123,18 @@ function getFocalSession() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : null;
-  } catch (error) { return null; }
+  } catch (error) { 
+    return null; 
+  }
 }
 
 function isValidSession(session) {
-  return !!(session && session.auth_type === "aedes_focal" && (session.focal_id || session.focal_pk) && session.nome);
+  return !!(session && (session.focal_pk || session.email));
 }
 
-function clearFocalSession() { localStorage.removeItem(AEDES_FOCAL_SESSION_KEY); }
+function clearFocalSession() { 
+  localStorage.removeItem(AEDES_FOCAL_SESSION_KEY); 
+}
 
 function showSessionWarning() {
   document.getElementById("sessionWarning")?.classList.remove("hidden");
@@ -98,7 +149,7 @@ function showApp() {
 function fillSessionInfo(session) {
   const nomeEl = document.getElementById("infoFocalNome");
   const emailEl = document.getElementById("infoFocalEmail");
-  if (nomeEl) nomeEl.textContent = session.nome || "---";
+  if (nomeEl) nomeEl.textContent = session.nome || "Agente Focal";
   if (emailEl) emailEl.textContent = session.email || "---";
 }
 
@@ -106,7 +157,10 @@ function initializeSystemDateInfo() {
   systemDate = new Date();
   const dataEl = document.getElementById("infoDataPreenchimento");
   const semanaEl = document.getElementById("infoSemanaReferencia");
-  if (dataEl) dataEl.textContent = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(systemDate);
+  
+  if (dataEl) {
+    dataEl.textContent = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(systemDate);
+  }
   if (semanaEl) {
     const ano = getIsoWeekYear(systemDate);
     const semana = getIsoWeek(systemDate);
@@ -114,27 +168,40 @@ function initializeSystemDateInfo() {
   }
 }
 
+/**
+ * Consulta de unidades por focal_pk ou email
+ */
 async function buildGridRows() {
   const tbody = document.getElementById("vistoriaGridBody");
   if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px;">Sincronizando...</td></tr>`;
 
   try {
+    const focalPk = currentSession?.focal_pk;
     const emailFocal = currentSession?.email;
-    if (!emailFocal) throw new Error("Sessão inválida.");
+    
+    if (!focalPk && !emailFocal) throw new Error("Identificação do focal ausente.");
 
-    const response = await fetch(`${window.AEDES_API_BASE_URL}/api/aedes/base?filtro=${encodeURIComponent(emailFocal)}`);
+    const apiBase = window.AEDES_API_BASE_URL || "https://dma-aedes-api.onrender.com";
+    
+    // Constrói query aceitando focal_pk ou email
+    const queryParam = focalPk 
+      ? `focal_pk=${encodeURIComponent(focalPk)}` 
+      : `email=${encodeURIComponent(emailFocal)}`;
+
+    const response = await fetch(`${apiBase}/api/aedes/unidades?${queryParam}`);
+    
     if (!response.ok) throw new Error("Não foi possível carregar suas unidades.");
     
     const unidadesFocal = await response.json();
-    if (unidadesFocal.length === 0) {
+    if (!Array.isArray(unidadesFocal) || unidadesFocal.length === 0) {
        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px;">Nenhuma unidade vinculada.</td></tr>`;
        return;
     }
 
-    gridRows = unidadesFocal.map((itemSTG) => ({
+    gridRows = unidadesFocal.map((item) => ({
       rowId: createLocalId("row"),
-      unidadeId: itemSTG.id || "S/M",
-      unidade: itemSTG.unidade_nome || itemSTG.nome_unidade || itemSTG.Unidade || "Unidade sem identificação",
+      unidadeId: item.unidade_id || item.id || "S/M",
+      unidade: item.nome_unidade || item.unidade_nome || "Unidade sem identificação",
       statusLinha: "Pendente",
       vistoriaRealizada: "",
       motivosNaoVistoria: [],
@@ -193,6 +260,7 @@ function renderGrid() {
         <td class="col-observacoes"><textarea class="input-control input-control--compact" rows="2" data-row-id="${escapeHtml(row.rowId)}" data-field="observacoes">${escapeHtml(row.observacoes)}</textarea></td>
       </tr>`;
   }).join("");
+  
   updateConditionalColumnsVisibility();
 }
 
@@ -204,9 +272,9 @@ function updateConditionalColumnsVisibility() {
   table.classList.toggle("show-col-nao-remediacao", gridRows.some(r => getRowVisibility(r).showMotivosNaoRemediacao));
 }
 
-function renderInlineRadioGroup({ rowId, field, value, index, options }) {
+function renderInlineRadioGroup({ rowId, field, value, options }) {
   return `<div class="radio-group-inline compact">
-    ${options.map((opt, optIdx) => `
+    ${options.map((opt) => `
       <label class="radio-chip-inline ${opt.className || ""}">
         <input type="radio" name="${field}_${rowId}" value="${opt.value}" ${value === opt.value ? "checked" : ""} data-row-id="${rowId}" data-field="${field}" />
         <span>${opt.label}</span>
@@ -217,25 +285,46 @@ function renderInlineRadioGroup({ rowId, field, value, index, options }) {
 function renderCheckboxGroup({ rowId, groupKey, values, otherText, options, otherPlaceholder, otherField }) {
   const hasOther = values.includes("outros");
   return `<div class="checkbox-group">
-    ${options.map((opt, idx) => `
+    ${options.map((opt) => `
       <label class="checkbox-option">
         <input type="checkbox" value="${opt.value}" data-row-id="${rowId}" data-group-key="${groupKey}" ${values.includes(opt.value) ? "checked" : ""} />
         <span>${opt.label}</span>
       </label>`).join("")}
-    <textarea class="${hasOther ? "" : "hidden"}" placeholder="${otherPlaceholder}" data-row-id="${rowId}" data-field="${otherField}">${isDashValue(otherText) ? "" : otherText}</textarea>
+    <textarea class="${hasOther ? "" : "hidden"}" placeholder="${otherPlaceholder}" data-row-id="${rowId}" data-field="${otherField}">${isDashValue(otherText) ? "" : escapeHtml(otherText)}</textarea>
   </div>`;
 }
 
 function bindGridEvents() {
   const tbody = document.getElementById("vistoriaGridBody");
+  if (!tbody) return;
+  
   tbody.addEventListener("change", (e) => {
     const { rowId, field, groupKey } = e.target.dataset;
     if (!rowId) return;
     if (field) updateGridRow(rowId, field, e.target.value, { rerender: true });
     else if (groupKey) updateGridCheckboxGroup(rowId, groupKey, e.target.value, e.target.checked);
   });
+
   tbody.addEventListener("input", (e) => {
-    if (e.target.dataset.field === "observacoes") updateGridRow(e.target.dataset.rowId, "observacoes", e.target.value, { rerender: false });
+    const { rowId, field } = e.target.dataset;
+    if (!rowId || !field) return;
+
+    // Atualização de estado sem re-renderizar para evitar perda de foco
+    const row = gridRows.find(r => r.rowId === rowId);
+    if (row) {
+      row[field] = e.target.value;
+      row.statusLinha = getRowStatus(row);
+      
+      // Atualiza badge de status da linha diretamente no DOM
+      const rowTr = tbody.querySelector(`tr[data-row-id="${rowId}"]`);
+      if (rowTr) {
+        const badge = rowTr.querySelector(".status-pill");
+        if (badge) {
+          badge.textContent = row.statusLinha;
+          badge.className = `status-pill ${getStatusClass(row.statusLinha)}`;
+        }
+      }
+    }
   });
 }
 
@@ -243,9 +332,15 @@ function updateGridRow(rowId, field, value, options = { rerender: true }) {
   const row = gridRows.find(r => r.rowId === rowId);
   if (!row) return;
   row[field] = normalizeFieldValue(field, value);
-  if (field === "vistoriaRealizada") value === "nao" ? applyNoVistoriaState(row) : (clearNoVistoriaState(row), row.focoEncontrado = "", row.focoRemediado = "");
-  else if (field === "focoEncontrado") value === "nao" ? applyNoFocoState(row) : (clearNoFocoState(row), row.focoRemediado = "");
-  else if (field === "focoRemediado" && value === "sim") clearNaoRemediacaoState(row);
+  
+  if (field === "vistoriaRealizada") {
+    value === "nao" ? applyNoVistoriaState(row) : (clearNoVistoriaState(row), row.focoEncontrado = "", row.focoRemediado = "");
+  } else if (field === "focoEncontrado") {
+    value === "nao" ? applyNoFocoState(row) : (clearNoFocoState(row), row.focoRemediado = "");
+  } else if (field === "focoRemediado" && value === "sim") {
+    clearNaoRemediacaoState(row);
+  }
+
   row.statusLinha = getRowStatus(row);
   if (options.rerender) renderGrid();
 }
@@ -253,12 +348,15 @@ function updateGridRow(rowId, field, value, options = { rerender: true }) {
 function updateGridCheckboxGroup(rowId, groupKey, val, checked) {
   const row = gridRows.find(r => r.rowId === rowId);
   if (!row) return;
+  
   row[groupKey] = checked ? uniqueArray([...row[groupKey], val]) : row[groupKey].filter(v => v !== val);
+  
   if (val === "outros" && !checked) {
     if (groupKey === "locaisFoco") row.outrosLocalFoco = "";
     if (groupKey === "motivosNaoRemediacao") row.outrosMotivoNaoRemediacao = "";
     if (groupKey === "motivosNaoVistoria") row.outrosMotivoNaoVistoria = "";
   }
+  
   row.statusLinha = getRowStatus(row);
   renderGrid();
 }
@@ -287,15 +385,18 @@ function hasValidGroupSelection(values, otherText) {
   return true;
 }
 
-function getStatusClass(s) { return s === "Pronto" ? "status-pill--success" : (s === "Pendente" ? "status-pill--muted" : "status-pill--danger"); }
+function getStatusClass(s) { 
+  return s === "Pronto" ? "status-pill--success" : (s === "Pendente" ? "status-pill--muted" : "status-pill--danger"); 
+}
 
 /**
- * ENVIO DE DADOS (Retornado à estrutura original com tratamento anti-null)
+ * Montagem de Payload Padronizado
  */
 function buildBatchPayload(dataRef) {
   const user = currentSession;
   return {
     cabecalho: {
+      focal_pk: user?.focal_pk || null,
       focal_nome: user?.nome || "Não Identificado",
       focal_email: user?.email || "",
       matricula: String(user?.matricula || ""),
@@ -304,58 +405,46 @@ function buildBatchPayload(dataRef) {
       total_registros: gridRows.length,
       lote_id_cliente: createLocalId("lote")
     },
-    dados: gridRows.map(row => [
-      row.unidadeId,                               // 0: unidade_id
-      row.unidade,                                 // 1: unidade_nome
-      row.vistoriaRealizada || DASH_VALUE,         // 2: vistoria_realizada
-      row.focoEncontrado || DASH_VALUE,            // 3: foco_encontrado
-      row.focoRemediado || DASH_VALUE,             // 4: foco_remediado
-      row.locaisFoco || [],                        // 5: locais_foco (Array)
-      safeTrim(row.outrosLocalFoco) || "-",        // 6: outros_local
-      row.motivosNaoVistoria || [],                // 7: motivos_nao_vistoria (Array)
-      safeTrim(row.outrosMotivoNaoVistoria) || "", // 8: outros_motivo_nao_vistoria
-      row.motivosNaoRemediacao || [],              // 9: motivos_nao_remediacao (Array)
-      safeTrim(row.outrosMotivoNaoRemediacao) || "-", // 10: outros_motivo_nao_remediacao
-      safeTrim(row.observacoes) || DASH_VALUE      // 11: observacoes
-    ])
+    vistorias: gridRows.map(row => ({
+      unidade_id: row.unidadeId,
+      unidade_nome: row.unidade,
+      vistoria_realizada: row.vistoriaRealizada || DASH_VALUE,
+      foco_encontrado: row.focoEncontrado || DASH_VALUE,
+      foco_remediado: row.focoRemediado || DASH_VALUE,
+      locais_foco: row.locaisFoco || [],
+      outros_local: safeTrim(row.outrosLocalFoco) || DASH_VALUE,
+      motivos_nao_vistoria: row.motivosNaoVistoria || [],
+      outros_motivo_nao_vistoria: safeTrim(row.outrosMotivoNaoVistoria) || "",
+      motivos_nao_remediacao: row.motivosNaoRemediacao || [],
+      outros_motivo_nao_remediacao: safeTrim(row.outrosMotivoNaoRemediacao) || DASH_VALUE,
+      observacoes: safeTrim(row.observacoes) || DASH_VALUE
+    }))
   };
 }
-// Handler do Termo de Responsabilidade
-document.addEventListener('DOMContentLoaded', () => {
-    const chk = document.getElementById('chkResponsabilidade');
-    const btn = document.getElementById('btnEnviarRelatorio');
-    if (chk && btn) {
-        chk.addEventListener('change', () => { 
-            btn.disabled = !chk.checked;
-            btn.style.opacity = chk.checked ? "1" : "0.5"; 
-        });
-    }
-});
 
 /**
- * SUBMIT DIRETOCONCRETO (Sem envelopamento e apontando para a rota original)
+ * Submissão de lote para a API
  */
 async function handleSubmitReport(event) {
   if (event?.preventDefault) event.preventDefault();
-  if (!document.getElementById('chkResponsabilidade').checked) return alert("Aceite o termo.");
-  if (gridRows.some(r => getRowStatus(r) !== "Pronto")) return alert("Existem linhas incompletas.");
+  
+  const chk = document.getElementById('chkResponsabilidade');
+  if (chk && !chk.checked) return alert("Aceite o termo de veracidade.");
+  if (gridRows.some(r => getRowStatus(r) !== "Pronto")) return alert("Existem linhas pendentes na grade. Preencha todos os campos obrigatórios.");
 
   const btn = document.getElementById("btnEnviarRelatorio");
   try {
     btn.disabled = true; 
     btn.innerText = "Enviando lote...";
     
-    // 🟢 Gera a estrutura exata contendo { cabecalho, dados } na raiz
     const payloadConcreto = buildBatchPayload(new Date());
+    const apiBase = window.AEDES_API_BASE_URL || "https://dma-aedes-api.onrender.com";
     
-    console.log("📦 Enviando payload plano para a rota oficial:", JSON.stringify(payloadConcreto, null, 2));
-    
-    // Altere a linha do fetch dentro de handleSubmitReport para:
-const res = await fetch("https://dma-aedes-api.onrender.com/api/aedes/lotes-provisorio", {
-  method: "POST", 
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(payloadConcreto) 
-});
+    const res = await fetch(`${apiBase}/api/aedes/lotes-provisorio`, {
+      method: "POST", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadConcreto) 
+    });
 
     if (res.ok) {
       document.querySelector('main').style.display = 'none';
@@ -367,14 +456,14 @@ const res = await fetch("https://dma-aedes-api.onrender.com/api/aedes/lotes-prov
         const errorData = await res.json();
         mensagemErro = errorData.error || errorData.detalhe || mensagemErro;
       } catch (jsonErr) {
-        console.error("Não foi possível ler o erro JSON:", jsonErr);
+        console.error("Erro ao ler JSON de erro:", jsonErr);
       }
       throw new Error(mensagemErro);
     }
   } catch (e) {
     alert(e.message);
     btn.disabled = false; 
-    btn.innerText = "Enviar relatório semanal";
+    btn.innerText = "Enviar relatório";
   }
 }
 
@@ -394,9 +483,3 @@ function isDashValue(v) { return safeTrim(v) === DASH_VALUE; }
 function normalizeFieldValue(f, v) { return f === "observacoes" ? v : (isDashValue(v) ? DASH_VALUE : safeTrim(v)); }
 function getIsoWeek(d) { const t = new Date(d.valueOf()); t.setDate(t.getDate() - ((d.getDay() + 6) % 7) + 3); const f = new Date(t.getFullYear(), 0, 4); return 1 + Math.round((t - (f.setDate(f.getDate() - ((f.getDay() + 6) % 7) + 3))) / 604800000); }
 function getIsoWeekYear(d) { const t = new Date(d.valueOf()); t.setDate(t.getDate() - ((d.getDay() + 6) % 7) + 3); return t.getFullYear(); }
-// Toggle botão enviar
-document.addEventListener('DOMContentLoaded', () => {
-    const chk = document.getElementById('chkResponsabilidade');
-    const btn = document.getElementById('btnEnviarRelatorio');
-    if (chk && btn) chk.addEventListener('change', () => { btn.disabled = !chk.checked; btn.style.opacity = chk.checked ? "1" : "0.5"; });
-});
