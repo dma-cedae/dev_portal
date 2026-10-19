@@ -1,4 +1,4 @@
-# 🚀 Portal-DMA — Ambiente de Produção
+#  Portal-DMA — Ambiente de Produção
 
 Este repositório contém o código-fonte da versão final e estável do **Portal-DMA** em ambiente de produção. O código hospedado aqui é o que está sendo distribuído diretamente para os usuários finais.
 
