@@ -313,6 +313,39 @@
     .btn-consultar-v3:hover { background-color: #639d24; }
     .resultado-dinamico-container-v3 { margin-top: 14px; }
 
+    /* CARD DE AGENDA / REUNIÃO MENSAL */
+.card-agenda-recicla {
+  margin-top: 24px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.card-agenda-recicla:hover {
+  transform: translateY(-2px);
+  border-color: var(--verde-cedaenet);
+}
+
+.card-agenda-recicla-link {
+  display: block;
+  width: 100%;
+  text-decoration: none;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.card-agenda-recicla-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
     /* ---------- ESTRUTURA PRINCIPAL ---------- */
     .module-page {
       max-width: 1400px;      /* era 1180px — acompanha a largura do hero */
@@ -498,6 +531,19 @@
             <div class="kpi-mini-val-v3" id="kpi-total-peso">-- kg</div>
             <span class="kpi-mini-sub-v3" id="kpi-participantes">-- participantes</span>
           </div>
+        </div>
+        <!-- ======================================================== -->
+        <!-- CARD DE AGENDA / REUNIÃO MENSAL (NOVO ENCAIXE)          -->
+        <!-- ======================================================== -->
+        <div class="card-agenda-recicla">
+          <a href="assets/reuniao_mensal_recicla.png" target="_blank" class="card-agenda-recicla-link" title="Clique para ampliar o convite">
+            <img 
+              src="assets/reuniao_mensal_recicla.png" 
+              alt="Chamada Reunião Mensal Recicla" 
+              class="card-agenda-recicla-img"
+              onerror="this.style.display='none';"
+            />
+          </a>
         </div>
         <!-- Impacto Ambiental (Cálculo Macro Automatizado)
         <div class="eco-kpi-container-v3">
