@@ -447,6 +447,118 @@
       color: #fff;
       border-color: var(--marrom-organico);
     }
+    /* BANNER DE REUNIÃO MENSAL - HORIZONTAL */
+.card-agenda-recicla-v2 {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(7, 58, 109, 0.85) 0%, rgba(47, 125, 79, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  box-sizing: border-box;
+}
+
+.banner-reuniao-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.banner-reuniao-header {
+  flex: 1 1 260px;
+}
+
+.banner-reuniao-header .tag-foco {
+  display: inline-block;
+  background: var(--verde-cedaenet, #74b62e);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.banner-reuniao-header h2 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.banner-reuniao-header .subtitulo-banner {
+  margin: 4px 0 0 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.banner-reuniao-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.info-pill-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 14px;
+  border-radius: 8px;
+  min-width: 130px;
+}
+
+.info-pill-item i {
+  font-size: 1.2rem;
+  color: var(--verde-cedaenet, #74b62e);
+}
+
+.info-pill-item div {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-pill-item strong {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+.info-pill-item span {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 2px;
+}
+
+.info-pill-item.destaque-local {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* RESPONSIVIDADE PARA TELAS MENORES */
+@media (max-width: 768px) {
+  .banner-reuniao-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .banner-reuniao-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
 
     /* BLOCOS DE GRÁFICOS */
 .graficos-grid { 
@@ -572,19 +684,46 @@
             <span class="kpi-mini-sub-v3" id="kpi-participantes">-- participantes</span>
           </div>
         </div>
-        <!-- ======================================================== -->
-        <!-- CARD DE AGENDA / REUNIÃO MENSAL (NOVO ENCAIXE)          -->
-        <!-- ======================================================== -->
-        <div class="card-agenda-recicla">
-          <a href="assets/reuniao_mensal_recicla.png" target="_blank" class="card-agenda-recicla-link" title="Clique para ampliar o convite">
-            <img 
-              src="assets/reuniao_mensal_recicla.png" 
-              alt="Chamada Reunião Mensal Recicla" 
-              class="card-agenda-recicla-img"
-              onerror="this.style.display='none';"
-            />
-          </a>
+        <!-- CARD DE AGENDA / REUNIÃO MENSAL -->
+<div class="card-agenda-recicla-v2">
+  <div class="banner-reuniao-content">
+    
+    <!-- LADO ESQUERDO: TÍTULO E NÚCLEO DA REUNIÃO -->
+    <div class="banner-reuniao-header">
+      <span class="tag-foco">RECICLA CEDAE</span>
+      <h2>REUNIÃO MENSAL</h2>
+      <p class="subtitulo-banner">Acompanhamento de Metas & Resultados do Programa</p>
+    </div>
+
+    <!-- LADO DIREITO: DADOS DE DATA, HORA E LOCAL -->
+    <div class="banner-reuniao-info">
+      <div class="info-pill-item">
+        <i class="fa-regular fa-calendar-days"></i>
+        <div>
+          <strong>Dia 23/10</strong>
+          <span>Sexta-feira</span>
         </div>
+      </div>
+
+      <div class="info-pill-item">
+        <i class="fa-regular fa-clock"></i>
+        <div>
+          <strong>às 14:30</strong>
+          <span>Auditório / Manancial</span>
+        </div>
+      </div>
+
+      <div class="info-pill-item destaque-local">
+        <i class="fa-solid fa-location-dot"></i>
+        <div>
+          <strong>Prédio Sede</strong>
+          <span>Presencial</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
         <!-- Impacto Ambiental (Cálculo Macro Automatizado)
         <div class="eco-kpi-container-v3">
           <div class="eco-kpi-card-v3">
