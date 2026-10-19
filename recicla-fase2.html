@@ -345,6 +345,46 @@
   border-radius: 6px;
   object-fit: contain;
 }
+    /* Hero alinhado com o restante da página */
+.hero-tech-v3 { padding: 40px 24px; }
+
+.hero-tech__wrapper-v3 {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 48px;
+  align-items: start;          /* topo alinhado, não centralizado */
+}
+
+/* Selo menor, widget com largura confortável */
+.widget-top-logo-area-v3 .hero-selo-img-v3 {
+  width: 180px;
+  height: 140px;
+}
+.widget-combo-container-v3 { max-width: 520px; gap: 14px; }
+
+/* Card de agenda com altura controlada */
+.card-agenda-recicla {
+  margin-top: 20px;
+  padding: 10px;
+  max-width: 100%;
+}
+.card-agenda-recicla-img {
+  width: 100%;
+  max-height: 220px;           /* limita a altura */
+  object-fit: cover;           /* ou contain, se não puder cortar */
+  object-position: top;
+}
+
+/* Responsivo: aqui sim fica o empilhamento */
+@media (max-width: 920px) {
+  .hero-tech__wrapper-v3 {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .hero-tech__right-side-v3 { justify-content: center; }
+}
 
     /* ---------- ESTRUTURA PRINCIPAL ---------- */
     .module-page {
